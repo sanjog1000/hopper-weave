@@ -1,0 +1,104 @@
+
+cmake_minimum_required(VERSION 3.24)
+
+project(HopperWeave
+    VERSION 0.1.0
+    DESCRIPTION "A Hopper-Native LLM Inference Engine"
+    LANGUAGES CXX CUDA
+)
+
+# ============================================================
+# Language Standards
+# ============================================================
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_EXTENSIONS OFF)
+
+# ============================================================
+# CUDA Architecture Targets
+# ============================================================
+# SM 80: NVIDIA Ampere (A100)
+# SM 90: NVIDIA Hopper (H100)
+#
+# Hopper-specific instructions and kernels will be introduced
+# in dedicated optimization stages.
+
+set(CMAKE_CUDA_ARCHITECTURES "80;90")
+
+# ============================================================
+# CUDA Toolkit
+# ============================================================
+
+find_package(CUDAToolkit REQUIRED)
+
+# ============================================================
+# Project Include Directories
+# ============================================================
+
+set(HOPPERWEAVE_INCLUDE_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
+# ============================================================
+# Helper: Register a CUDA Executable
+# ============================================================
+
+function(add_hopperweave_cuda_target target source_file)
+    add_executable(${target} ${source_file})
+
+    target_include_directories(${target}
+        PRIVATE
+            "${HOPPERWEAVE_INCLUDE_DIR}"
+    )
+
+    target_link_libraries(${target}
+        PRIVATE
+            CUDA::cudart
+    )
+
+    set_target_properties(${target} PROPERTIES
+        CUDA_SEPARABLE_COMPILATION OFF
+    )
+endfunction()
+
+# ============================================================
+# Main Application
+# ============================================================
+
+add_hopperweave_cuda_target(
+    hopperweave
+    src/main.cu
+)
+
+# ============================================================
+# CUDA Learning / Microbenchmark Targets
+# ============================================================
+# Register each target only when its source file exists.
+# This allows incremental development without CMake failing
+# because a planned benchmark has not been created yet.
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/benchmarks/coalescing_tiny.cu")
+    add_hopperweave_cuda_target(
+        coalescing_tiny
+        src/benchmarks/coalescing_tiny.cu
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/benchmarks/transpose_naive.cu")
+    add_hopperweave_cuda_target(
+        transpose_naive
+        src/benchmarks/transpose_naive.cu
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/benchmarks/gemm_naive.cu")
+    add_hopperweave_cuda_target(
+        gemm_naive
+        src/benchmarks/gemm_naive.cu
+    )
+endif()
